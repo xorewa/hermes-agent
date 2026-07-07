@@ -571,6 +571,16 @@ class HermesACPAgent(acp.Agent):
     def _edit_approval_policy_for_state(self, state: SessionState) -> tuple[str, str | None]:
         mode = str(getattr(state, "mode", "") or self._MODE_DEFAULT)
         policy = self._MODE_TO_EDIT_APPROVAL_POLICY.get(mode, self._EDIT_APPROVAL_POLICY_DEFAULT)
+        # Deployment-level default override for ACP clients that expose no
+        # mode switcher (e.g. sidebar chat extensions): when the session is
+        # still in the default mode, HERMES_ACP_EDIT_APPROVAL_DEFAULT may
+        # raise the baseline to workspace_session ("Accept Edits") or
+        # session ("Don't Ask"). Sensitive paths (.env, .ssh, .git, keys)
+        # still always prompt — enforced in should_auto_approve_edit().
+        if mode == self._MODE_DEFAULT:
+            env_default = os.environ.get("HERMES_ACP_EDIT_APPROVAL_DEFAULT", "").strip()
+            if env_default in ("ask", "workspace_session", "session"):
+                policy = env_default
         return policy, state.cwd
 
     @staticmethod
